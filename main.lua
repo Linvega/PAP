@@ -46,9 +46,11 @@ function class_ini ()
 
 		--local general_status
 
-		function button:new(_x,_y,_w,_h,_text)
+		function button:new(_id,_gs,_x,_y,_w,_h,_text)
 			local obj = {}
 			
+			obj.id = _id
+			obj.g_status = _gs
 			obj.visible = false
 			obj.x = _x
 			obj.y = _y
@@ -90,6 +92,9 @@ function class_ini ()
 			return self.h;
 		end
 		
+		function get_general_status()
+			return self.g_status;
+		end
 
 	end
 	
@@ -103,24 +108,32 @@ end
 class_ini() 
 --
 
+--ФУНКЦИЯ ПРИСВОЕНИЯ ID
+--ПРОВЕРЯЕТ ЗАДАННЫЙ МАССИВ ОБЪЕКТОВ И ПРИСВАЕТ НОВЫЙ ID
+function set_id(_arr)
+	return #_arr+1
+end
+--
+
 --БЛОК СОЗДАНИЯ ОБЪЕКТОВ
 --[[  ГАЙД ПО КНОПКАМ
 для корректного выравнивания кнопок:
 высота -- НЕЧЁТНАЯ > 1
 ширина -- >= ДЛИНА СЛОВА, НЕЧЁТНОЕ СЛОВО - ЧЁТНАЯ ДЛИНА И НАОБОРОТ  
 ]]
-button_exit = button:new(m_weight/2-5,m_height/2+2,11,3,"EXIT^")
-button_exit.action = function()
+b_ = {} --массивк кнопок
+id = set_id(b_)
+b_[id] = button:new(id,0,m_weight/2-5,m_height/2+2,11,3,"EXIT^")
+b_[id].action = function()
 	gpu.setForeground(white)
 	gpu.setBackground(black)
 	gpu.fill(1, 1, m_weight, m_height, ' ')
 	os.exit()
 end
 
-button_start = button:new(m_weight/2-5,m_height/2-2,11,3,"START")
-
---button_start.visible = true
-button_start.action = function()
+id = set_id(b_)
+b_[id] = button:new(id,0,m_weight/2-5,m_height/2-2,11,3,"START")
+b_[id].action = function()
 	gpu.setForeground(white)
 	gpu.setBackground(black)
 	gpu.fill(1, 1, m_weight, m_height, ' ')
@@ -133,18 +146,19 @@ end
 while true do
 --energy = c.solar_panel.getEnergyStored()
 --max_energy = c.solar_panel.getMaxEnergyStored()
-
 if general_status == 0 then
 draw:text_align(1, m_height/2-4, 1, 0, "WELCOME TO PAP!")
-button_start:draw_button()
-button_exit:draw_button()
+for i = 1, #b_ do
+b_[i]:draw_button()
+end
 end
 local tEvent = {e_pull('touch')}
-if tEvent[3] >= button_start:get_x() and tEvent[3] <= button_start:get_x()+button_start:get_w() and tEvent[4] >= button_start:get_y() and tEvent[4] <= button_start:get_y()+button_start:get_h() then 
-button_start:action()
-end
-if tEvent[3] >= button_exit:get_x() and tEvent[3] <= button_exit:get_x()+button_exit:get_w() and tEvent[4] >= button_exit:get_y() and tEvent[4] <= button_exit:get_y()+button_exit:get_h() then 
-button_exit:action()
+for i = 1, #b_ do
+	if b_[i].g_status == 0 then
+		if tEvent[3] >= b_[i]:get_x() and tEvent[3] <= b_[i]:get_x()+b_[i]:get_w() and tEvent[4] >= b_[i]:get_y() and tEvent[4] <= b_[i]:get_y()+b_[i]:get_h() then 
+			b_[i]:action()
+		end
+	end
 end
 
 end
