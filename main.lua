@@ -17,8 +17,7 @@ computer = require('computer')
 gpu = c.gpu --подключаем видеокарту
 m_weight, m_height = gpu.getResolution() --записываем длину и ширину монитора
 general_status = 0 --статус активного окна
-origin_backcolor = gpu.getForeground() --сохраняем стандартные цвета консоли
-origin_textcolor = gpu.getBackground()
+
 --
 
 
@@ -29,6 +28,8 @@ red = 0xff0000
 --
 
 --ПЕРВИЧНАЯ НАСТРОЙКА ИНТЕРФЕЙСА
+origin_backcolor = black --сохраняем стандартные цвета консоли
+origin_textcolor = white
 
 gpu.setForeground(black)
 gpu.setBackground(white)
@@ -108,6 +109,18 @@ end
 class_ini() 
 --
 
+--ФУНКЦИЯ РЕВЁРСА ОСНОВНЫХ ЦВЕТОВ ПАЛИТРЫ
+function rev_color(_vol)
+if _vol == 0 then 	--основной
+	gpu.setBackground(white)
+	gpu.setForeground(black)
+else			  	--обратный
+	gpu.setBackground(black)
+	gpu.setForeground(white)
+end
+end
+--
+
 --ФУНКЦИЯ ПРИСВОЕНИЯ ID
 --ПРОВЕРЯЕТ ЗАДАННЫЙ МАССИВ ОБЪЕКТОВ И ПРИСВАЕТ НОВЫЙ ID
 function set_id(_arr)
@@ -125,8 +138,7 @@ b_ = {} --массивк кнопок
 id = set_id(b_)
 b_[id] = button:new(id,0,m_weight/2-5,m_height/2+2,11,3,"EXIT^")
 b_[id].action = function()
-	gpu.setForeground(white)
-	gpu.setBackground(black)
+    rev_color(1)
 	gpu.fill(1, 1, m_weight, m_height, ' ')
 	os.exit()
 end
@@ -134,12 +146,10 @@ end
 id = set_id(b_)
 b_[id] = button:new(id,0,m_weight/2-5,m_height/2-2,11,3,"START")
 b_[id].action = function()
-	gpu.setForeground(white)
-	gpu.setBackground(black)
-	gpu.fill(1, 1, m_weight, m_height, ' ')
-	os.exit()
+	general_status = 1
+    rev_color(0)
+	gpu.fill(1, 1, m_weight, m_height, ' ')	
 end
-
 --
 
 --ОСНОВНОЕ ТЕЛО ПРОГРАММЫ
@@ -148,13 +158,22 @@ while true do
 --max_energy = c.solar_panel.getMaxEnergyStored()
 if general_status == 0 then
 draw:text_align(1, m_height/2-4, 1, 0, "WELCOME TO PAP!")
-for i = 1, #b_ do
-b_[i]:draw_button()
 end
+if general_status == 1 then
+	draw:text_align(1,1, 1, 0, "Control Panel")
+	rev_color(1)
+	draw:rectangle(1, 2, m_weight, 1, 1, black, white)	
+	draw:rectangle(4, 4, 10, 10, 0, black, white)	
+	rev_color(0)
+end
+for i = 1, #b_ do
+	if b_[i].g_status == general_status then
+		b_[i]:draw_button()
+	end
 end
 local tEvent = {e_pull('touch')}
 for i = 1, #b_ do
-	if b_[i].g_status == 0 then
+	if b_[i].g_status == general_status then
 		if tEvent[3] >= b_[i]:get_x() and tEvent[3] <= b_[i]:get_x()+b_[i]:get_w() and tEvent[4] >= b_[i]:get_y() and tEvent[4] <= b_[i]:get_y()+b_[i]:get_h() then 
 			b_[i]:action()
 		end
