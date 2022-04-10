@@ -1,4 +1,4 @@
---[[
+--[[ОПИСАНИЕ
 Программа программируемой автоматизации - Programmable Automation program (PAP)
 Ver 0.0
 	]]
@@ -8,12 +8,15 @@ c = require("component")
 term = require("term")
 e_pull = require('event').pull
 unicode = require("unicode")
+draw = require('draw')
+computer = require('computer')
 --
 
 
 --БЛОК СТАНДАРТНЫХ ПЕРЕМЕННЫХ
-gpu = c.gpu
-m_weight, m_height = gpu.getResolution()
+gpu = c.gpu --подключаем видеокарту
+m_weight, m_height = gpu.getResolution() --записываем длину и ширину монитора
+general_status = 0 --статус активного окна
 --
 
 
@@ -37,16 +40,48 @@ function class_ini ()
 	function class_button()
 		button={}
 		button.__index = button
+		
+		local visible = false
+		local x,y,w,h
+		local b_color, t_color = black, white
+		local text = "button "
+		local action 
+		--local general_status
 
-		function button:new(_name)
-		local obj = {name = _name}
-		setmetatable(obj,self)
-		return obj
+		function button:new(_id,_x,_y,_w,_h,_text)
+			local obj = {id = _id}
+			setmetatable(obj,self)
+			text = _text
+			x,y,w,h = _x,_y,_w,_h
+			return obj
 		end
+		
+		function button:draw_button()
+			gpu.setBackground(t_color)
+			gpu.setForeground(b_color)
+			gpu.fill(x,y,w,h," ")
+			gpu.set(x+w/2-(#text)/2,y+h/2,text)
+			gpu.setBackground(b_color)
+			gpu.setForeground(t_color)
+		end
+		
+		function button:get_x()
+			return x;
+		end
+		
+		function button:get_y()
+			return y;
+		end
+		
+		function button:get_w()
+			return w;
+		end
+		
+		function button:get_h()
+			return h;
+		end
+		
 
-		function button:test()
-		return "ok"
-		end
 	end
 	
 -- ПОДКЛЮЧЕНИЕ ВСЕХ КЛАССОВ - ДУБЛИРВОАНИЕ ИМЁН ФУНКЦИЙ
@@ -60,20 +95,34 @@ class_ini()
 --
 
 --БЛОК СОЗДАНИЯ ОБЪЕКТОВ
-class_ini() --ИНИЦИАЛИЗАЦИЯ ВСЕХ КЛАССОВ
+--[[  ГАЙД ПО КНОПКАМ
+для корректного выравнивания кнопок:
+высота -- НЕЧЁТНАЯ > 1
+ширина -- >= ДЛИНА СЛОВА, НЕЧЁТНОЕ СЛОВО - ЧЁТНАЯ ДЛИНА И НАОБОРОТ  
+]]
+--button_exit = button:new(1)
+button_start = button:new(2,3,3,11,3,"START") 
 
-obj_test = button:new("TEST")
+button_start.visible = true
+button_start.action = function()
+	computer.shutdown(true)
+end
+
 --
+
 
 --ОСНОВНОЕ ТЕЛО ПРОГРАММЫ
 while true do
 --energy = c.solar_panel.getEnergyStored()
 --max_energy = c.solar_panel.getMaxEnergyStored()
 
+if general_status == 0 then
+draw:text_align(1, 1, 1, 1, "WELCOME TO PAP!")
+button_start.draw_button()
+end
+local tEvent = {e_pull('touch')}
+if tEvent[3] >= button_start.get_x() and tEvent[3] <= button_start.get_x()+button_start.get_w() and tEvent[4] >= button_start.get_y() and tEvent[4] <= button_start.get_y()+button_start.get_h() then 
+button_start.action()
+end
 
-gpu.set(1, 1, "Добро пожаловать в PAP! Тестовая сборка")
-gpu.set(1, 2, tostring(max_energy))
-
-gpu.set(1, 3, obj_test:test())
-os.sleep(0.5)
 end
