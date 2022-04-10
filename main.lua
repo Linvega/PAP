@@ -17,18 +17,21 @@ computer = require('computer')
 gpu = c.gpu --подключаем видеокарту
 m_weight, m_height = gpu.getResolution() --записываем длину и ширину монитора
 general_status = 0 --статус активного окна
+origin_backcolor = gpu.getForeground() --сохраняем стандартные цвета консоли
+origin_textcolor = gpu.getBackground()
 --
 
 
 --БЛОК ЦВЕТОВОЙ ПАЛИТРЫ
-white = 0x000000 
-black = 0xffffff
+white = 0xffffff 
+black = 0x000000
+red = 0xff0000
 --
 
 --ПЕРВИЧНАЯ НАСТРОЙКА ИНТЕРФЕЙСА
 
-gpu.setForeground(white)
-gpu.setBackground(black)
+gpu.setForeground(black)
+gpu.setBackground(white)
   
 if term.clear() ~= nil then --ОЧИСТКА ОКНА
 	term.clear()
@@ -39,46 +42,52 @@ end
 function class_ini () 
 	function class_button()
 		button={}
-		button.__index = button
 		
-		local visible = false
-		local x,y,w,h
-		local b_color, t_color = black, white
-		local text = "button "
-		local action 
+
 		--local general_status
 
-		function button:new(_id,_x,_y,_w,_h,_text)
-			local obj = {id = _id}
+		function button:new(_x,_y,_w,_h,_text)
+			local obj = {}
+			
+			obj.visible = false
+			obj.x = _x
+			obj.y = _y
+			obj.w = _w
+			obj.h = _h
+			obj.t_color = black 
+			obj.b_color = white
+			obj.text = _text
+			obj.action = function()
+			end
+			
 			setmetatable(obj,self)
-			text = _text
-			x,y,w,h = _x,_y,_w,_h
+			self.__index = self
 			return obj
 		end
 		
 		function button:draw_button()
-			gpu.setBackground(t_color)
-			gpu.setForeground(b_color)
-			gpu.fill(x,y,w,h," ")
-			gpu.set(x+w/2-(#text)/2,y+h/2,text)
-			gpu.setBackground(b_color)
-			gpu.setForeground(t_color)
+			gpu.setBackground(self.t_color)
+			gpu.setForeground(self.b_color)
+			gpu.fill(self.x,self.y,self.w,self.h," ")
+			gpu.set(self.x+self.w/2-(#self.text)/2,self.y+self.h/2,self.text)
+			gpu.setBackground(self.b_color)
+			gpu.setForeground(self.t_color)
 		end
 		
 		function button:get_x()
-			return x;
+			return self.x;
 		end
 		
 		function button:get_y()
-			return y;
+			return self.y;
 		end
 		
 		function button:get_w()
-			return w;
+			return self.w;
 		end
 		
 		function button:get_h()
-			return h;
+			return self.h;
 		end
 		
 
@@ -100,16 +109,25 @@ class_ini()
 высота -- НЕЧЁТНАЯ > 1
 ширина -- >= ДЛИНА СЛОВА, НЕЧЁТНОЕ СЛОВО - ЧЁТНАЯ ДЛИНА И НАОБОРОТ  
 ]]
---button_exit = button:new(1)
-button_start = button:new(2,3,3,11,3,"START") 
+button_exit = button:new(m_weight/2-5,m_height/2+2,11,3,"EXIT^")
+button_exit.action = function()
+	gpu.setForeground(white)
+	gpu.setBackground(black)
+	gpu.fill(1, 1, m_weight, m_height, ' ')
+	os.exit()
+end
 
-button_start.visible = true
+button_start = button:new(m_weight/2-5,m_height/2-2,11,3,"START")
+
+--button_start.visible = true
 button_start.action = function()
-	computer.shutdown(true)
+	gpu.setForeground(white)
+	gpu.setBackground(black)
+	gpu.fill(1, 1, m_weight, m_height, ' ')
+	os.exit()
 end
 
 --
-
 
 --ОСНОВНОЕ ТЕЛО ПРОГРАММЫ
 while true do
@@ -117,12 +135,16 @@ while true do
 --max_energy = c.solar_panel.getMaxEnergyStored()
 
 if general_status == 0 then
-draw:text_align(1, 1, 1, 1, "WELCOME TO PAP!")
-button_start.draw_button()
+draw:text_align(1, m_height/2-4, 1, 0, "WELCOME TO PAP!")
+button_start:draw_button()
+button_exit:draw_button()
 end
 local tEvent = {e_pull('touch')}
-if tEvent[3] >= button_start.get_x() and tEvent[3] <= button_start.get_x()+button_start.get_w() and tEvent[4] >= button_start.get_y() and tEvent[4] <= button_start.get_y()+button_start.get_h() then 
-button_start.action()
+if tEvent[3] >= button_start:get_x() and tEvent[3] <= button_start:get_x()+button_start:get_w() and tEvent[4] >= button_start:get_y() and tEvent[4] <= button_start:get_y()+button_start:get_h() then 
+button_start:action()
+end
+if tEvent[3] >= button_exit:get_x() and tEvent[3] <= button_exit:get_x()+button_exit:get_w() and tEvent[4] >= button_exit:get_y() and tEvent[4] <= button_exit:get_y()+button_exit:get_h() then 
+button_exit:action()
 end
 
 end
