@@ -20,6 +20,7 @@ general_status = 0 --статус активного окна
 deneral_status_old = 0
 
 b_ = {} --глобальный массив кнопок
+b_list_ = {{},{}} --глобальный массив для листов
 
 --
 
@@ -138,14 +139,18 @@ function class_ini ()
 					self.obj_f_list[i].action = function()
 					os.exit()
 					end
-					id = set_id(b_)
-					b_[id] = self.obj_f_list[i]
+					id = set_id(b_list_)
+					b_list_[self.g_status][id] = self.obj_f_list[i]
 					i = i+1
 				end
 				i = 0
 			else
 				for e = 1, #self.obj_f_list do
 					self.obj_f_list[e] = nil
+					
+				end
+				for e = 1, #b_list_ do
+					b_list_[self.g_status][e] = nil
 				end
 				i = 1
 				for address, name in c.list() do
@@ -153,12 +158,14 @@ function class_ini ()
 					self.obj_f_list[i].action = function()
 					os.exit()
 					end
-					id = set_id(b_)
-					b_[id] = self.obj_f_list[i]
+					id = set_id(b_list_)
+					b_list_[self.g_status][id] = self.obj_f_list[i]
 					i = i+1
 				end
 				i = 0
 			end
+			
+			
 		end
 		
 		function obj_list:draw_list()
@@ -293,22 +300,33 @@ b_[id].action = function()
 	end
 end
 
---[[
+
 id = set_id(b_)
-b_[id] = button:new(id,2,14,m_height-3,11,3,"UP")
+b_[id] = button:new(id,2,m_weight/2-15,14,8,3,"UP")
 b_[id].action = function()
 
 end
 
 id = set_id(b_)
-b_[id] = button:new(id,2,14,m_height-3,11,3,"DOWN")
+b_[id] = button:new(id,2,m_weight/2-15,19,8,3,"DOWN")
 b_[id].action = function()
 
 end
-]]
+
+id = set_id(b_)
+b_[id] = button:new(id,2,m_weight/2-15,24,8,3,"UPDATE")
+b_[id].action = function()
+	l_[1]:import_c_list()
+end
+
+--СОЗДАНИЕ СПИСКОВ С ОБЪЕКТАМИ
 l_ = {}
 id = set_id(l_)
 l_[id] = obj_list:new(id,2,3,6,58,28,"components")	
+
+
+--СОЗДАНИЕ ТЕКСТОВЫХ СПИСКОВ
+
 --
 
 --ОСНОВНОЕ ТЕЛО ПРОГРАММЫ
@@ -325,6 +343,7 @@ end
 --ОКНА -----------------------------------------------------
 --стартовое меню
 if general_status == 0 then
+l_[1]:import_c_list()
 draw:text_align(1, m_height/2-4, 1, 0, "WELCOME TO PAP!")
 end
 
@@ -337,7 +356,6 @@ end
 
 --component API
 if general_status == 2 then
-
 	l_[1]:import_c_list()
 	draw:text_align(1,1, 1, 0, "Component API")
 	draw:rectangle(1, 2, m_weight, 1, 1, black, white)
@@ -349,14 +367,14 @@ if general_status == 2 then
 	draw:rectangle(m_weight/2+2,5,60,30,0,black,white)
 	
 	l_[1]:draw_list()
-	--[[
-	for i = 1, #b_ do
-	gpu.set(m_weight/2-15,5+i,tostring(b_[i]:get_x()))
-	gpu.set(m_weight/2-10,5+i,tostring(b_[i]:get_y()))
-	gpu.set(m_weight/2-5,5+i,tostring(b_[i]:get_h()))
-	gpu.set(m_weight/2,5+i,tostring(b_[i]:get_w()))
-	end
-]]
+
+	--[[for i = 1, #b_list_ do
+	gpu.set(m_weight/2-15,5+i,tostring(b_list_[i]:get_x()))
+	gpu.set(m_weight/2-10,5+i,tostring(b_list_[i]:get_y()))
+	gpu.set(m_weight/2-5,5+i,tostring(b_list_[i]:get_h()))
+	gpu.set(m_weight/2,5+i,tostring(b_list_[i]:get_w()))
+	end]]
+
 	
 end
 ------------------------------------------------------------
@@ -371,12 +389,28 @@ end
 
 --ПРОВЕРКА НАЖАТИЯ МЫШИ
 local tEvent = {e_pull('touch')}
+
+if #b_list_ ~= nil then
+	--for i = 1, #b_list_[general_status] do
+	--	if tEvent[3] >= b_list_[general_status][i]:get_x() and tEvent[3] <= b_list_[general_status][i]:get_x()+b_list_[general_status][i]:get_w() and tEvent[4] >= b_list_[general_status][i]:get_y() and tEvent[4] <= b_list_[general_status][i]:get_y()+b_list_[general_status][i]:get_h() then 
+			--b_list_[general_status][i]:action()
+	--	end
+	--end
+	for i = 1, #b_list_ do
+	gpu.set(m_weight/2-15,5+i,tostring(b_list_[general_status][i]:get_x()))
+	gpu.set(m_weight/2-10,5+i,tostring(b_list_[general_status][i]:get_y()))
+	gpu.set(m_weight/2-5,5+i,tostring(b_list_[general_status][i]:get_h()))
+	gpu.set(m_weight/2,5+i,tostring(b_list_[general_status][i]:get_w()))
+	end
+end
 for i = 1, #b_ do
 	if b_[i].g_status == general_status then
 		if tEvent[3] >= b_[i]:get_x() and tEvent[3] <= b_[i]:get_x()+b_[i]:get_w() and tEvent[4] >= b_[i]:get_y() and tEvent[4] <= b_[i]:get_y()+b_[i]:get_h() then 
 			b_[i]:action()
 		end
 	end
+	
+
 end
 
 end
