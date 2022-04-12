@@ -10,6 +10,7 @@ e_pull = require('event').pull
 unicode = require("unicode")
 draw = require('draw')
 computer = require('computer')
+thread = require('thread')
 --
 
 
@@ -253,10 +254,10 @@ function class_ini ()
 		function obj_list:add_components_info(_table,_table_info)
 			self.first_visible = 1
 			if #self.obj_f_list ~= nil then
-			for e = 1, #self.obj_f_list do
-				self.obj_f_list[e] = nil
+				for e = 1, #self.obj_f_list do
+					self.obj_f_list[e] = nil
+				end
 			end
-		end
 			_dim = 0
 			for i in pairs(_table) do
 				self.obj_f_list[i] = obj_for_list:new(i,self.g_status,self.x,self.y+i-1+_dim,self.w,1,_table[i],"")
@@ -287,19 +288,20 @@ function class_ini ()
 		end
 		
 		function obj_list:draw_components_info()	
-			_dim = 0
-			for i = 1, #self.obj_f_list do
-				_dim = _dim + self.obj_f_list[i].dim
-			end
-			self.n_visible = self.h
-			if _dim > self.h then
-				self.n_visible = self.h
-			else
-				self.n_visible = _dim
-			end
-			
-			gpu.fill(self.x,self.y,self.w,self.h," ")
+
+			gpu.fill(self.x,self.y,self.w,self.h," ")	
 			if #self.obj_f_list ~= nil then
+				_dim = 0
+				for i = 1, #self.obj_f_list do
+					_dim = _dim + self.obj_f_list[i].dim
+				end
+					self.n_visible = self.h
+				if _dim > self.h then
+					self.n_visible = self.h
+				else
+					self.n_visible = _dim
+				end
+			
 				for i = 1 , #self.obj_f_list do
 					if self.obj_f_list[i].y >= self.y and self.obj_f_list[i].y < self.y + self.h   then
 					gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y,i.." name: ")
@@ -313,8 +315,14 @@ function class_ini ()
 						end
 					end
 				end
-			else
-				gpu.set(self.x,self.y,"Select a component")
+			end
+		end
+		
+		function obj_list:clear_components_info()
+			if #self.obj_f_list ~= nil then
+				for e = 1, #self.obj_f_list do
+					self.obj_f_list[e] = nil
+				end
 			end
 		end
 		
@@ -330,6 +338,7 @@ function class_ini ()
 	end
 	
 	function class_obj_for_list()
+	
 		obj_for_list={} --класс списка объектов (для выведения массива данных с возможностью обращения к записи)
 		
 		
@@ -411,7 +420,8 @@ function class_ini ()
 		end
 		
 	end
-	
+
+	--function 
 -- ПОДКЛЮЧЕНИЕ ВСЕХ КЛАССОВ - ДУБЛИРВОАНИЕ ИМЁН ФУНКЦИЙ
 	class_button()
 	class_obj_list()
@@ -485,6 +495,7 @@ id = set_id(b_)
 b_[id] = button:new(id,1,2,4,11,3,"component")
 b_[id].action = function()
 	l_[1]:import_c_list()
+	l_[2]:clear_components_info()
 	general_status = 2	
 end
 
@@ -549,10 +560,18 @@ l_[id] = obj_list:new(id,2,m_weight/2+3,6,58,28,2,"components_info")
 --СОЗДАНИЕ ТЕКСТОВЫХ СПИСКОВ
 
 --
-
+thread.create(function()
+while true do
+	if general_status ~= 0 then
+		gpu.set(m_weight-5,1,string.sub(tostring(os.date()),10,14))
+	end
+    os.sleep(0.8)
+end
+end)
 --ОСНОВНОЕ ТЕЛО ПРОГРАММЫ
 while true do
 --отслеживание перехода окна
+
 if general_status_old ~= general_status then
 	b_[1]:set_status(general_status)
 	general_status_old = general_status
@@ -565,6 +584,9 @@ end
 if general_status == 0 then
 draw:text_align(1, m_height/2-4, 1, 0, "WELCOME TO PAP!")
 
+else 
+
+--io.write(os.time())
 end
 
 --control panel
