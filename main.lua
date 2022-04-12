@@ -261,7 +261,6 @@ function class_ini ()
 			_dim = 0
 			for i in pairs(_table) do
 				self.obj_f_list[i] = obj_for_list:new(i,self.g_status,self.x,self.y+i-1+_dim,self.w,1,_table[i],"")
-				if _table_info[i] ~= nil then
 					a = 1
 					e = 1
 					text = _table_info[i]
@@ -278,11 +277,8 @@ function class_ini ()
 						self.obj_f_list[i].dim = self.obj_f_list[i].dim + 1
 					else
 					self.obj_f_list[i].text_table[1] = text
+					self.obj_f_list[i].dim = self.obj_f_list[i].dim + 1
 					end
-				else
-					self.obj_f_list[i].text_table[1] = "no info"
-					self.obj_f_list[i].dim = 2
-				end
 			_dim = _dim + self.obj_f_list[i].dim - 1
 			end
 		end
@@ -382,8 +378,15 @@ function class_ini ()
 			methods_info = {}
 			for key, value in pairs(c.getPrimary(self.name)) do
 					table.insert(methods,key)
-					table.insert(methods_info,c.doc(self.text,key))
-				end
+			end
+			table.sort(methods)
+			for i in pairs(methods) do
+			if c.doc(self.text,methods[i]) ~= nil then
+				table.insert(methods_info,c.doc(self.text,methods[i]))
+			else
+				table.insert(methods_info,"no info")
+			end
+			end
 			l_[2]:add_components_info(methods,methods_info)
 			else
 			self.condition = 0			
