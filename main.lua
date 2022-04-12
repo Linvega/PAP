@@ -152,7 +152,6 @@ function class_ini ()
 			else
 				for e = 1, #self.obj_f_list do
 					self.obj_f_list[e] = nil
-					
 				end
 				for e = 1, #b_list_[self.g_status] do
 					b_list_[self.g_status][e] = nil
@@ -229,11 +228,94 @@ function class_ini ()
 			end
 		end
 		
-		function obj_list:draw_components_info(_table)
-			gpu.fill(self.x,self.y,self.w,self.h," ")
-				for i in pairs(_table) do
-					gpu.set(self.x,self.y+i-1,i.." ".._table[i])
+		function obj_list:up_list()
+			if self.first_visible > 1 then
+				self.first_visible = self.first_visible - 1
+				return true
+			else
+				return false
+			end
+		end
+		
+		function obj_list:down_list()			
+			_dim = 0
+			for i = 1, #self.obj_f_list do
+				_dim = _dim + self.obj_f_list[i].dim
+			end
+			if self.first_visible+self.n_visible <= _dim then
+				self.first_visible = self.first_visible + 1
+				return true
+			else
+				return false
+			end
+		end
+		
+		function obj_list:add_components_info(_table,_table_info)
+			self.first_visible = 1
+			if #self.obj_f_list ~= nil then
+			for e = 1, #self.obj_f_list do
+				self.obj_f_list[e] = nil
+			end
+		end
+			_dim = 0
+			for i in pairs(_table) do
+				self.obj_f_list[i] = obj_for_list:new(i,self.g_status,self.x,self.y+i-1+_dim,self.w,1,_table[i],"")
+				if _table_info[i] ~= nil then
+					a = 1
+					e = 1
+					text = _table_info[i]
+					t = string.len(text)
+					if t > self.w then
+						while t > self.w do
+							self.obj_f_list[i].text_table[e] = string.sub(text,a,a+self.w-1)
+							a = a + self.w
+							t = t - self.w
+							e = e + 1
+							self.obj_f_list[i].dim = self.obj_f_list[i].dim + 1
+						end
+						self.obj_f_list[i].text_table[e] = string.sub(text,a,a+self.w-1)
+						self.obj_f_list[i].dim = self.obj_f_list[i].dim + 1
+					else
+					self.obj_f_list[i].text_table[1] = text
+					end
+				else
+					self.obj_f_list[i].text_table[1] = "no info"
+					self.obj_f_list[i].dim = 2
 				end
+			_dim = _dim + self.obj_f_list[i].dim - 1
+			end
+		end
+		
+		function obj_list:draw_components_info()	
+			_dim = 0
+			for i = 1, #self.obj_f_list do
+				_dim = _dim + self.obj_f_list[i].dim
+			end
+			self.n_visible = self.h
+			if _dim > self.h then
+				self.n_visible = self.h
+			else
+				self.n_visible = _dim
+			end
+			
+			gpu.fill(self.x,self.y,self.w,self.h," ")
+			if #self.obj_f_list ~= nil then
+				for i = 1 , #self.obj_f_list do
+					if self.obj_f_list[i].y >= self.y and self.obj_f_list[i].y < self.y + self.h   then
+					gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y,i.." name: ")
+					gpu.setForeground(pink)
+					gpu.set(self.obj_f_list[i].x+9+i/10,self.obj_f_list[i].y,self.obj_f_list[i].name)
+					gpu.setForeground(black)
+					end
+					for t = 1, self.obj_f_list[i].dim-1 do
+						if self.obj_f_list[i].y+t >= self.y and self.obj_f_list[i].y+t < self.y + self.h  then
+							gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y+t,self.obj_f_list[i].text_table[t])
+						end
+					end
+				end
+			else
+				gpu.set(self.x,self.y,"Select a component")
+			end
 		end
 		
 		function obj_list:normal()
@@ -262,10 +344,12 @@ function class_ini ()
 			obj.y = _y
 			obj.w = _w
 			obj.h = _h
+			obj.dim = 1
 			obj.t_color = black 
 			obj.b_color = white
 			obj.name = _name
 			obj.text = _text
+			obj.text_table = {}
 			obj.action = function()
 			end
 			
@@ -286,10 +370,12 @@ function class_ini ()
 			if self.condition == 0 then
 			self.condition = 1			
 			methods = {}
+			methods_info = {}
 			for key, value in pairs(c.getPrimary(self.name)) do
 					table.insert(methods,key)
+					table.insert(methods_info,c.doc(self.text,key))
 				end
-			l_[2]:draw_components_info(methods)
+			l_[2]:add_components_info(methods,methods_info)
 			else
 			self.condition = 0			
 			end
@@ -413,7 +499,7 @@ end
 
 
 id = set_id(b_)
-b_[id] = button:new(id,2,m_weight/2-15,14,8,3,"UP")
+b_[id] = button:new(id,2,m_weight/2-15,14,8,3,"UP") --component api 1 table
 b_[id].action = function()
 if l_[1]:up() == true then
 coor_up(l_[1]:get_arr_obj(),2)
@@ -421,7 +507,7 @@ end
 end
 
 id = set_id(b_)
-b_[id] = button:new(id,2,m_weight/2-15,19,8,3,"DOWN")
+b_[id] = button:new(id,2,m_weight/2-15,19,8,3,"DOWN") --component api 1 table
 b_[id].action = function()
 if l_[1]:down() == true then
 coor_down(l_[1]:get_arr_obj(),2)
@@ -429,10 +515,26 @@ end
 end
 
 id = set_id(b_)
-b_[id] = button:new(id,2,m_weight/2-15,24,8,3,"UPDATE")
+b_[id] = button:new(id,2,m_weight/2-15,24,8,3,"UPDATE") 
 b_[id].action = function()
 	l_[1]:normal()
 	l_[1]:import_c_list()
+end
+
+id = set_id(b_)
+b_[id] = button:new(id,2,m_weight/2+65,17,8,3,"UP") --component api 2 table
+b_[id].action = function()
+if l_[2]:up_list() == true then 
+coor_up(l_[2]:get_arr_obj(),1)
+end
+end
+
+id = set_id(b_)
+b_[id] = button:new(id,2,m_weight/2+65,21,8,3,"DOWN") --component api 2 table
+b_[id].action = function()
+if l_[2]:down_list() == true then 
+coor_down(l_[2]:get_arr_obj(),1)
+end
 end
 
 --СОЗДАНИЕ СПИСКОВ С ОБЪЕКТАМИ
@@ -484,6 +586,7 @@ if general_status == 2 then
 	
 
 	l_[1]:draw_components_list()
+	l_[2]:draw_components_info()
 
 	--table.insert(methods,"")
 	--for i= 1, #methods do
