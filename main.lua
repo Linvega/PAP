@@ -29,6 +29,9 @@ b_list_ = {{},{}} --глобальный массив для листов
 white = 0xffffff 
 black = 0x000000
 red = 0xff0000
+green = 0x00ff00
+light_blue = 0x00ffff
+pink = 0xff00ff
 --
 
 --ПЕРВИЧНАЯ НАСТРОЙКА ИНТЕРФЕЙСА
@@ -182,12 +185,18 @@ function class_ini ()
 				if self.obj_f_list[e]:get_cond() == 1 then
 					rev_color(1)
 					gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y,self.obj_f_list[e].w,1," ")
-					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: "..self.obj_f_list[e]:get_name())
+					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: ")
+					gpu.setForeground(pink)
+					gpu.set(self.obj_f_list[e].x+9+e/10,self.obj_f_list[e].y,self.obj_f_list[e]:get_name())
+					gpu.setForeground(white)
 					gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y+1,self.obj_f_list[e].w,1," ")
 					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y+1,"adress: "..self.obj_f_list[e]:get_discription())
 					rev_color(0)
 				else
-					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: "..self.obj_f_list[e]:get_name())
+					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: ")
+					gpu.setForeground(pink)
+					gpu.set(self.obj_f_list[e].x+9+e/10,self.obj_f_list[e].y,self.obj_f_list[e]:get_name())
+					gpu.setForeground(black)
 					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y+1,"adress: "..self.obj_f_list[e]:get_discription())
 				end		
 				end				
@@ -218,6 +227,13 @@ function class_ini ()
 			else
 				return false
 			end
+		end
+		
+		function obj_list:draw_components_info(_table)
+			gpu.fill(self.x,self.y,self.w,self.h," ")
+				for i in pairs(_table) do
+					gpu.set(self.x,self.y+i-1,i.." ".._table[i])
+				end
 		end
 		
 		function obj_list:normal()
@@ -268,7 +284,12 @@ function class_ini ()
 		
 		function obj_for_list:activate()
 			if self.condition == 0 then
-			self.condition = 1
+			self.condition = 1			
+			methods = {}
+			for key, value in pairs(c.getPrimary(self.name)) do
+					table.insert(methods,key)
+				end
+			l_[2]:draw_components_info(methods)
 			else
 			self.condition = 0			
 			end
@@ -419,6 +440,9 @@ l_ = {}
 id = set_id(l_)
 l_[id] = obj_list:new(id,2,3,6,58,28,2,"components")	
 
+id = set_id(l_)
+l_[id] = obj_list:new(id,2,m_weight/2+3,6,58,28,2,"components_info")	
+
 
 --СОЗДАНИЕ ТЕКСТОВЫХ СПИСКОВ
 
@@ -461,6 +485,10 @@ if general_status == 2 then
 
 	l_[1]:draw_components_list()
 
+	--table.insert(methods,"")
+	--for i= 1, #methods do
+	--io.write(tostring(methods[i]))
+	--end
 	--[[for i = 1, #b_list_ do
 	gpu.set(m_weight/2-15,5+i,tostring(b_list_[i]:get_x()))
 	gpu.set(m_weight/2-10,5+i,tostring(b_list_[i]:get_y()))
