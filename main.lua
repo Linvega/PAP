@@ -7,22 +7,46 @@ Ver 0.0
 c = require("component")
 term = require("term")
 e_pull = require('event').pull
+event = require("event")
 unicode = require("unicode")
 draw = require('draw')
 computer = require('computer')
 thread = require('thread')
+keyboard = require('keyboard')
+key = require('pap_keyboard')
 --
 
 
 --БЛОК СТАНДАРТНЫХ ПЕРЕМЕННЫХ
 gpu = c.gpu --подключаем видеокарту
-m_weight, m_height = gpu.getResolution() --записываем длину и ширину монитора
+m = c.modem --подключаем модем
+
+need = 0
+
+m.open(1) --открываем порт 1
+
+m_weight, m_height = 160,50 --записываем длину и ширину монитора
+gpu.setResolution(m_weight,m_height)
 general_status = 0 --статус активного окна
 deneral_status_old = 0
 
 b_ = {} --глобальный массив кнопок
-b_list_ = {{},{}} --глобальный массив для листов
 
+function newAutotable(dim)
+    local MT = {};
+    for i=1, dim do
+        MT[i] = {__index = function(t, k)
+            if i < dim then
+                t[k] = setmetatable({}, MT[i+1])
+                return t[k];
+            end
+        end}
+    end
+
+    return setmetatable({}, MT[1]);
+end
+
+b_list_ = newAutotable(3)
 --
 
 
@@ -138,78 +162,155 @@ function class_ini ()
 			return obj
 		end
 		
-		function obj_list:import_c_list()
-			a = 0
-			if #self.obj_f_list == nil then
-				i = 1
-				for address, name in c.list() do
-					self.obj_f_list[i] = obj_for_list:new(i,self.g_status,self.x,self.y+i-1+a,self.w,self.dim,name,address)
-					id = set_id(b_list_[self.g_status])
-					b_list_[self.g_status][id] = self.obj_f_list[i]
+		function obj_list:create_table( _type,...) --метод передачи таблицы в объект списка
+		local _table = {} 
+		for i = 1, select('#', ...) do
+		_table[i] = select(i, ...)
+		end
+			clear()
+			
+			local i = 1 --переменная для исчисления id объекта
+			local _dim = 0 --переменная для вычисления высоты объекта
+			
+			if _type == "components" then --если тип компонентный
+				for k, n in pairs(_table[1]) do
+					self.obj_f_list[i] = obj_for_list:new(i,self.g_status,self.x,self.y+_dim,self.w,2,n,k) --создаём новый объект для списка
+					self.obj_f_list[i].last_area = self.obj_f_list[i].last_area + 1
+					b_list_[self.g_status][self.id][i] = self.obj_f_list[i] --добавляем объект в глобальный массив кнопок списков
 					i = i+1
-					a = a + self.dim -1
+					_dim = _dim + 2
 				end
-				i = 0
-			else
-				for e = 1, #self.obj_f_list do
-					self.obj_f_list[e] = nil
-				end
-				for e = 1, #b_list_[self.g_status] do
-					b_list_[self.g_status][e] = nil
-				end
-				i = 1
-				for address, name in c.list() do
-					self.obj_f_list[i] = obj_for_list:new(i,self.g_status,self.x,self.y+i-1+a,self.w,self.dim,name,address)
-					id = set_id(b_list_[self.g_status])
-					b_list_[self.g_status][id] = self.obj_f_list[i]
-					i = i+1
-					a = a + self.dim -1
-				end
-				i = 0
 			end
 			
-			
+			if _type == "components_info" then --если тип компонентный
+				for n in pairs(_table[1]) do --прогоняем первуб таблицу
+					self.obj_f_list[n] = obj_for_list:new(n,self.g_status,self.x,self.y+n-1+_dim,self.w,1,_table[1][n],"") --создаём новый объект для списка
+					local a = 1
+					local e = 1
+					local text = _table[2][n]
+					t = string.len(text)
+					if t > self.w then
+						while t > self.w do
+							self.obj_f_list[n].text_table[e] = string.sub(text,a,a+self.w-1)
+							a = a + self.w
+							t = t - self.w
+							e = e + 1
+							self.obj_f_list[n].dim = self.obj_f_list[n].dim + 1		
+							self.obj_f_list[n].last_area = self.obj_f_list[i].last_area + 1
+							_dim = _dim + 1
+						end
+						self.obj_f_list[n].text_table[e] = string.sub(text,a,a+self.w-1)
+						self.obj_f_list[n].dim = self.obj_f_list[n].dim + 1	
+						self.obj_f_list[n].last_area = self.obj_f_list[i].last_area + 1
+						_dim = _dim + 1
+					else
+					self.obj_f_list[n].text_table[1] = text
+					self.obj_f_list[n].dim = self.obj_f_list[n].dim + 1	
+					self.obj_f_list[n].last_area = self.obj_f_list[i].last_area + 1
+					_dim = _dim + 1
+					end
+					b_list_[self.g_status][self.id][i] = self.obj_f_list[n] --добавляем объект в глобальный массив кнопок списков
+					i = i+1
+				end
+			end
+			for a = 1, #self.obj_f_list do
+				if self.obj_f_list[a].y > self.y + self.h - 1 then
+					self.obj_f_list[a].last_area = 0
+				else
+					for t = 1, self.obj_f_list[a].dim - 1 do
+					if self.obj_f_list[a].y + t > self.y + self.h - 1 then
+						self.obj_f_list[a].last_area = self.obj_f_list[a].last_area - 1
+					end
+					end
+				end
+			end
 		end
 		
-		function obj_list:draw_components_list()
-			self.n_visible = #self.obj_f_list
-			if #self.obj_f_list * self.dim > self.h then
-			self.n_visible = self.h / self.dim 
-			end	
-			for i = self.first_visible, self.n_visible+self.first_visible - 1 do
-				self.obj_f_list[i].visible = 1
-			end
-			gpu.fill(self.x,self.y,self.w,self.h," ")
-			for e = 1, self.n_visible+self.first_visible - 1 do
-			if self.obj_f_list[e].visible == 1 then
-				if self.obj_f_list[e]:get_cond() == 1 then
-					rev_color(1)
-					gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y,self.obj_f_list[e].w,1," ")
-					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: ")
-					gpu.setForeground(pink)
-					gpu.set(self.obj_f_list[e].x+9+e/10,self.obj_f_list[e].y,self.obj_f_list[e]:get_name())
-					gpu.setForeground(white)
-					gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y+1,self.obj_f_list[e].w,1," ")
-					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y+1,"adress: "..self.obj_f_list[e]:get_discription())
-					rev_color(0)
-				else
-					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: ")
-					gpu.setForeground(pink)
-					gpu.set(self.obj_f_list[e].x+9+e/10,self.obj_f_list[e].y,self.obj_f_list[e]:get_name())
-					gpu.setForeground(black)
-					gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y+1,"adress: "..self.obj_f_list[e]:get_discription())
+		function obj_list:draw_list(_t)
+			
+			_type = _t or 0
+			
+			if _type == "components" then --если тип компонентный
+			
+				gpu.fill(self.x,self.y,self.w,self.h," ")	
+				
+				gpu.fill(self.x,self.y,self.w,self.h," ")
+				for e = 1, #self.obj_f_list do
+					if self.obj_f_list[e]:get_cond() == 1 then
+						if self.obj_f_list[e].y >= self.y and self.obj_f_list[e].y < self.y + self.h   then
+						rev_color(1)
+						gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y,self.obj_f_list[e].w,1," ")
+						gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: ")
+						gpu.setForeground(pink)
+						gpu.set(self.obj_f_list[e].x+9+e/10,self.obj_f_list[e].y,self.obj_f_list[e]:get_name())
+						gpu.setForeground(white)
+						rev_color(0)
+						end
+						if self.obj_f_list[e].y+1 >= self.y and self.obj_f_list[e].y+1 < self.y + self.h   then
+						rev_color(1)
+						gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y+1,self.obj_f_list[e].w,1," ")
+						gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y+1,self.obj_f_list[e]:get_discription())
+						rev_color(0)
+						end
+					else
+						if self.obj_f_list[e].y >= self.y and self.obj_f_list[e].y < self.y + self.h   then
+						gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y,self.obj_f_list[e].w,1," ")
+						gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y,e..". name: ")
+						gpu.setForeground(pink)
+						gpu.set(self.obj_f_list[e].x+9+e/10,self.obj_f_list[e].y,self.obj_f_list[e]:get_name())
+						gpu.setForeground(black)
+						end
+						if self.obj_f_list[e].y+1 >= self.y and self.obj_f_list[e].y+1 < self.y + self.h   then
+						gpu.fill(self.obj_f_list[e].x,self.obj_f_list[e].y+1,self.obj_f_list[e].w,1," ")
+						gpu.set(self.obj_f_list[e].x,self.obj_f_list[e].y+1,self.obj_f_list[e]:get_discription())
+						end
+					end		
 				end		
-				end				
+			end
+			
+			if _type == "components_info" then --если тип компонентный
+				gpu.fill(self.x,self.y,self.w,self.h," ")	
+			
+			
+				for i = 1 , #self.obj_f_list do --построчная отрисовка 
+					if self.obj_f_list[i].y >= self.y and self.obj_f_list[i].y < self.y + self.h   then --если коорды объекта попадают в диапазон окна
+						if self.obj_f_list[i].condition == 1 then	--проверка выбранного объекта
+							rev_color(1)
+							gpu.fill(self.obj_f_list[i].x,self.obj_f_list[i].y,self.obj_f_list[i].w,1," ")
+							gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y,i.." name: ") --выводим "имя"
+							gpu.setForeground(pink)
+							gpu.set(self.obj_f_list[i].x+9+i/10,self.obj_f_list[i].y,self.obj_f_list[i].name) --выводим имя выделенное цветом
+							gpu.setForeground(black)
+							rev_color(0)
+						else
+							gpu.fill(self.obj_f_list[i].x,self.obj_f_list[i].y,self.obj_f_list[i].w,1," ")
+							gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y,i.." name: ") --выводим "имя"
+							gpu.setForeground(pink)
+							gpu.set(self.obj_f_list[i].x+9+i/10,self.obj_f_list[i].y,self.obj_f_list[i].name) --выводим имя выделенное цветом
+							gpu.setForeground(black)
+						end
+					end
+					for t = 1, self.obj_f_list[i].dim-1 do --выводим описание
+						if self.obj_f_list[i].condition == 1 then	--проверка выбранного объекта
+							rev_color(1)
+							if self.obj_f_list[i].y+t >= self.y and self.obj_f_list[i].y+t < self.y + self.h  then
+								gpu.fill(self.obj_f_list[i].x,self.obj_f_list[i].y+t,self.obj_f_list[i].w,1," ")
+								gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y+t,self.obj_f_list[i].text_table[t])
+							end
+							rev_color(0)
+						else
+							if self.obj_f_list[i].y+t >= self.y and self.obj_f_list[i].y+t < self.y + self.h  then
+								gpu.fill(self.obj_f_list[i].x,self.obj_f_list[i].y+t,self.obj_f_list[i].w,1," ")
+								gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y+t,self.obj_f_list[i].text_table[t])
+							end
+						end
+					end
+				end
 			end
 		end
 		
 		function obj_list:up()
-			if self.first_visible > 1 then
-				self.first_visible = self.first_visible - 1
-			for i = 1, self.first_visible do
-				self.obj_f_list[i].visible = 0
-				self.obj_f_list[self.first_visible].visible = 1
-			end
+			if self.obj_f_list[1].y < self.y then
 				return true
 			else
 				return false
@@ -217,122 +318,63 @@ function class_ini ()
 		end
 		
 		function obj_list:down()
-			if self.n_visible + self.first_visible <= #self.obj_f_list then
-				self.first_visible = self.first_visible + 1
-			for i = 1, self.first_visible - 1 do
-				self.obj_f_list[i].visible = 0
-				self.obj_f_list[self.n_visible+1].visible = 1
-			end
-				return true
-			else
-				return false
-			end
-		end
-		
-		function obj_list:up_list()
-			if self.first_visible > 1 then
-				self.first_visible = self.first_visible - 1
-				return true
-			else
-				return false
-			end
-		end
-		
-		function obj_list:down_list()			
 			_dim = 0
+			q = 0
 			for i = 1, #self.obj_f_list do
 				_dim = _dim + self.obj_f_list[i].dim
+				q = q + 1
 			end
-			if self.first_visible+self.n_visible <= _dim then
-				self.first_visible = self.first_visible + 1
+			if self.obj_f_list[q].y+self.obj_f_list[q].dim-self.y >= self.h then
 				return true
 			else
 				return false
 			end
 		end
 		
-		function obj_list:add_components_info(_table,_table_info)
-			self.first_visible = 1
-			if #self.obj_f_list ~= nil then
-				for e = 1, #self.obj_f_list do
-					self.obj_f_list[e] = nil
-				end
-			end
-			_dim = 0
-			for i in pairs(_table) do
-				self.obj_f_list[i] = obj_for_list:new(i,self.g_status,self.x,self.y+i-1+_dim,self.w,1,_table[i],"")
-				if _table_info[i] ~= nil then
-					a = 1
-					e = 1
-					text = _table_info[i]
-					t = string.len(text)
-					if t > self.w then
-						while t > self.w do
-							self.obj_f_list[i].text_table[e] = string.sub(text,a,a+self.w-1)
-							a = a + self.w
-							t = t - self.w
-							e = e + 1
-							self.obj_f_list[i].dim = self.obj_f_list[i].dim + 1
-						end
-						self.obj_f_list[i].text_table[e] = string.sub(text,a,a+self.w-1)
-						self.obj_f_list[i].dim = self.obj_f_list[i].dim + 1
-					else
-					self.obj_f_list[i].text_table[1] = text
+		function obj_list:reset_up_area()
+			for i = 1, #self.obj_f_list do
+				for e = 1, self.obj_f_list[i].dim do
+					if self.obj_f_list[i].y + e >= self.y and self.obj_f_list[i].first_area > 1 then
+						self.obj_f_list[i].first_area = self.obj_f_list[i].first_area-1
 					end
-				else
-					self.obj_f_list[i].text_table[1] = "no info"
-					self.obj_f_list[i].dim = 2
-				end
-			_dim = _dim + self.obj_f_list[i].dim - 1
-			end
-		end
-		
-		function obj_list:draw_components_info()	
-
-			gpu.fill(self.x,self.y,self.w,self.h," ")	
-			if #self.obj_f_list ~= nil then
-				_dim = 0
-				for i = 1, #self.obj_f_list do
-					_dim = _dim + self.obj_f_list[i].dim
-				end
-					self.n_visible = self.h
-				if _dim > self.h then
-					self.n_visible = self.h
-				else
-					self.n_visible = _dim
-				end
-			
-				for i = 1 , #self.obj_f_list do
-					if self.obj_f_list[i].y >= self.y and self.obj_f_list[i].y < self.y + self.h   then
-					gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y,i.." name: ")
-					gpu.setForeground(pink)
-					gpu.set(self.obj_f_list[i].x+9+i/10,self.obj_f_list[i].y,self.obj_f_list[i].name)
-					gpu.setForeground(black)
-					end
-					for t = 1, self.obj_f_list[i].dim-1 do
-						if self.obj_f_list[i].y+t >= self.y and self.obj_f_list[i].y+t < self.y + self.h  then
-							gpu.set(self.obj_f_list[i].x,self.obj_f_list[i].y+t,self.obj_f_list[i].text_table[t])
-						end
+					if self.obj_f_list[i].y + e - 1 >= self.y+self.h-1 and self.obj_f_list[i].last_area > 0 then
+						self.obj_f_list[i].last_area = self.obj_f_list[i].last_area-1
 					end
 				end
 			end
 		end
 		
-		function obj_list:clear_components_info()
-			if #self.obj_f_list ~= nil then
-				for e = 1, #self.obj_f_list do
-					self.obj_f_list[e] = nil
+		function obj_list:reset_down_area()
+			for i = 1, #self.obj_f_list do
+				for e = 1, self.obj_f_list[i].dim do
+					if self.obj_f_list[i].y + e - 1 < self.y and self.obj_f_list[i].first_area <= self.obj_f_list[i].dim + 1 then
+						self.obj_f_list[i].first_area = self.obj_f_list[i].first_area+1
+					end
+					if self.obj_f_list[i].y + e - 1 <= self.y+self.h-1 and self.obj_f_list[i].last_area <= self.obj_f_list[i].dim then
+						self.obj_f_list[i].last_area = self.obj_f_list[i].last_area+1
+					end
 				end
 			end
 		end
 		
-		function obj_list:normal()
-			self.first_visible = 1
-			return true
-		end
-		
-		function obj_list:get_arr_obj()
+		function obj_list:get_arr()
+			if self.obj_f_list ~= nil then
 		return self.obj_f_list
+			else return false
+		end
+		end
+		
+		function obj_list:clear()
+			if #self.obj_f_list ~= nil then --в случае не пустого массива обнуляем его и глобальный
+				for e = 1, #b_list_[self.g_status][self.id] do
+					b_list_[self.g_status][self.id][e] = nil
+					self.obj_f_list[e] = nil
+				end
+			end
+		end
+		
+		function obj_list:set_function(_e,_f)
+				self.obj_f_list[_e].function_ = _f
 		end
 		
 	end
@@ -347,7 +389,8 @@ function class_ini ()
 			
 			obj.id = _id
 			obj.g_status = _gs
-			obj.visible = 0
+			obj.first_area = 1--
+			obj.last_area = 1-- значение областей доступности взаимодействия с объектом от У координаты
 			obj.condition = 0
 			obj.x = _x
 			obj.y = _y
@@ -359,7 +402,14 @@ function class_ini ()
 			obj.name = _name
 			obj.text = _text
 			obj.text_table = {}
+			obj.function_ = function()
+			end
 			obj.action = function()
+						if obj.condition == 0 then
+							obj.condition = 1	
+							else
+							obj.condition = 0
+							end
 			end
 			
 			setmetatable(obj,self)
@@ -375,24 +425,26 @@ function class_ini ()
 			return self.text
 		end
 		
-		function obj_for_list:activate()
-			if self.condition == 0 then
-			self.condition = 1			
-			methods = {}
-			methods_info = {}
-			for key, value in pairs(c.getPrimary(self.name)) do
-					table.insert(methods,key)
-					table.insert(methods_info,c.doc(self.text,key))
-				end
-			l_[2]:add_components_info(methods,methods_info)
-			else
-			self.condition = 0			
-			end
+		function obj_for_list:set_function(_f)
+			self.function_ = _f
+		end
+		
+		function obj_for_list:activate_function(_f)
+		if self.condition == 0 then
+			self.action()
+			self.function_()
 			return true
+			else
+			return false
+			end
 		end
 		
 		function obj_for_list:get_cond()
 			return self.condition
+		end
+		
+		function obj_for_list:set_cond(_c)
+			self.condition = _c
 		end
 		
 		function obj_for_list:get_x()
@@ -417,6 +469,14 @@ function class_ini ()
 		
 		function obj_for_list:get_h()
 			return self.h;
+		end
+		
+		function obj_for_list:get_area()
+			if self.first_area > self.last_area or self.last_area == 0 then
+				return false,0,0,0,0
+			else
+				return true, self.x, self.y + self.first_area-1, self.w-1, self.last_area - 1
+			end
 		end
 		
 	end
@@ -449,23 +509,25 @@ end
 --ФУНКЦИЯ ПРИСВОЕНИЯ ID
 --ПРОВЕРЯЕТ ЗАДАННЫЙ МАССИВ ОБЪЕКТОВ И ПРИСВАЕТ НОВЫЙ ID
 function set_id(_arr)
+	if _arr ~= nil then
 	return #_arr+1
+	else
+	return 1
+	end
 end
 --
 
 --ФУНКЦИИ СМЕЩЕНИЙ КООРДИНАТ
 function coor_down(_arr,_vol)
-local arr = _arr
-for i = 1, #arr do
-arr[i]:set_y(arr[i]:get_y()-_vol)
+for i = 1, #_arr do
+_arr[i]:set_y(_arr[i]:get_y()-_vol)
 end
 
 end
 
 function coor_up(_arr,_vol)
-local arr = _arr
-for i = 1, #arr do
-arr[i]:set_y(arr[i]:get_y()+_vol)
+for i = 1, #_arr do
+_arr[i]:set_y(_arr[i]:get_y()+_vol)
 end
 end
 --
@@ -494,9 +556,36 @@ end
 id = set_id(b_)
 b_[id] = button:new(id,1,2,4,11,3,"component")
 b_[id].action = function()
-	l_[1]:import_c_list()
-	l_[2]:clear_components_info()
 	general_status = 2	
+	l_[1]:create_table("components",c.list())
+	l_arr = l_[1]:get_arr()
+	for e = 1, #l_arr do
+		fun = function()
+		id = set_id(l_)
+		l_[id] = obj_list:new(2,2,m_weight/2+3,6,58,28,2,"components_info")	
+		local methods = {}
+		local methods_info = {}
+		for key, value in pairs(c.getPrimary(l_arr[e].name)) do
+					table.insert(methods,key)
+		end
+			table.sort(methods)
+		for i in pairs(methods) do
+			if c.doc(l_arr[e].text,methods[i]) ~= nil then
+				table.insert(methods_info,c.doc(l_arr[e].text,methods[i]))
+			else
+				table.insert(methods_info,"no info")
+			end
+		end
+		l_[2]:create_table("components_info",methods,methods_info)	
+		l_[2]:draw_list("components_info")
+		need = 1
+		return true
+		end
+	l_[1]:set_function(e,fun)
+	end
+	if l_[2] ~= nil then
+		l_[2]:clear()
+	end
 end
 
 id = set_id(b_)
@@ -513,7 +602,8 @@ id = set_id(b_)
 b_[id] = button:new(id,2,m_weight/2-15,14,8,3,"UP") --component api 1 table
 b_[id].action = function()
 if l_[1]:up() == true then
-coor_up(l_[1]:get_arr_obj(),2)
+coor_up(l_[1]:get_arr(),1)
+l_[1]:reset_up_area()
 end
 end
 
@@ -521,62 +611,131 @@ id = set_id(b_)
 b_[id] = button:new(id,2,m_weight/2-15,19,8,3,"DOWN") --component api 1 table
 b_[id].action = function()
 if l_[1]:down() == true then
-coor_down(l_[1]:get_arr_obj(),2)
+coor_down(l_[1]:get_arr(),1)
+l_[1]:reset_down_area()
 end
 end
 
 id = set_id(b_)
-b_[id] = button:new(id,2,m_weight/2-15,24,8,3,"UPDATE") 
+b_[id] = button:new(id,2,m_weight/2-15,24,8,3,"UPDATE") --component api 1 table
 b_[id].action = function()
-	l_[1]:normal()
-	l_[1]:import_c_list()
+	l_[1]:create_table("components",c.list())	
+	l_arr = l_[1]:get_arr()
+	for e = 1, #l_arr do
+		fun = function()
+		id = set_id(l_)
+		l_[id] = obj_list:new(2,2,m_weight/2+3,6,58,28,2,"components_info")	
+		local methods = {}
+		local methods_info = {}
+		for key, value in pairs(c.getPrimary(l_arr[e].name)) do
+					table.insert(methods,key)
+		end
+			table.sort(methods)
+		for i in pairs(methods) do
+			if c.doc(l_arr[e].text,methods[i]) ~= nil then
+				table.insert(methods_info,c.doc(l_arr[e].text,methods[i]))
+			else
+				table.insert(methods_info,"no info")
+			end
+		end
+		l_[2]:create_table("components_info",methods,methods_info)
+		return true
+		end
+	l_[1]:set_function(e,fun)
+	end
+	if l_[2] ~= nil then
+	l_[2]:clear()
+	end
 end
 
 id = set_id(b_)
 b_[id] = button:new(id,2,m_weight/2+65,17,8,3,"UP") --component api 2 table
 b_[id].action = function()
-if l_[2]:up_list() == true then 
-coor_up(l_[2]:get_arr_obj(),1)
-end
+	if l_[2] ~= nil then
+		if l_[2]:up() == true then 
+			coor_up(l_[2]:get_arr(),1)
+			l_[2]:reset_up_area()
+		end
+	end
 end
 
 id = set_id(b_)
 b_[id] = button:new(id,2,m_weight/2+65,21,8,3,"DOWN") --component api 2 table
 b_[id].action = function()
-if l_[2]:down_list() == true then 
-coor_down(l_[2]:get_arr_obj(),1)
-end
+	if l_[2] ~= nil then
+		if l_[2]:down() == true then 
+			coor_down(l_[2]:get_arr(),1)
+			l_[2]:reset_down_area()
+		end
+	end
 end
 
 --СОЗДАНИЕ СПИСКОВ С ОБЪЕКТАМИ
 l_ = {}
 id = set_id(l_)
-l_[id] = obj_list:new(id,2,3,6,58,28,2,"components")	
+l_[id] = obj_list:new(1,2,3,6,58,28,2,"components")	
 
-id = set_id(l_)
-l_[id] = obj_list:new(id,2,m_weight/2+3,6,58,28,2,"components_info")	
+
+
+
 
 
 --СОЗДАНИЕ ТЕКСТОВЫХ СПИСКОВ
 
 --
-thread.create(function()
+
+--ФОНОВЫЕ ПОТОКИ---------------------------------
+thread.create(function() --время
 while true do
-	if general_status ~= 0 then
+if general_status ~= 0 then
 		gpu.set(m_weight-5,1,string.sub(tostring(os.date()),10,14))
+		if general_status == 2 then
+		end
 	end
     os.sleep(0.8)
 end
 end)
+
+
+thread.create(function() --тест передачи сообщений
+while true do
+	_, _, from, port, _, message = e_pull("modem_message")
+	if general_status == 2 then
+		gpu.set(2,m_height-14,tostring(message))
+	end
+end
+end)
+
+
+
+--[[thread.create(function() --тест передачи сообщений
+while true do
+	if general_status ~= 0 then
+   num = 3--#b_list_[2][1]
+   for i = 1, num do
+		--gpu.fill(1,1,10,1,' ')
+		draw:text_align(1,1, 0, 0, tostring(b_list_[2][1][i]:get_x()))
+		os.sleep(1)
+   end
+   end
+end
+end)]]
+-----------------------------------------------
+
+
 --ОСНОВНОЕ ТЕЛО ПРОГРАММЫ
 while true do
 --отслеживание перехода окна
 
+function clear()
+	gpu.fill(1, 1, m_weight, m_height, ' ')
+end
+
 if general_status_old ~= general_status then
 	b_[1]:set_status(general_status)
 	general_status_old = general_status
-    rev_color(0)
-	gpu.fill(1, 1, m_weight, m_height, ' ')	
+    rev_color(0)	
+	clear()
 end
 
 --ОКНА -----------------------------------------------------
@@ -597,7 +756,11 @@ if general_status == 1 then
 end
 
 --component API
-if general_status == 2 then
+if general_status == 2 then	
+	if l_[2] ~= nil then
+		l_[2]:draw_list("components_info")	
+	end
+	l_[1]:draw_list("components")
 	draw:text_align(1,1, 1, 0, "Component API")
 	draw:rectangle(1, 2, m_weight, 1, 1, black, white)
 	--окна списков компонентов
@@ -605,23 +768,24 @@ if general_status == 2 then
 	draw:rectangle(2,5,60,30,0,black,white)	
 	draw:text_align(m_weight/2+2,4, 0, 0, "Function list_")	
 	draw:rectangle(m_weight/2+2,5,60,30,0,black,white)
-	
-
-	l_[1]:draw_components_list()
-	l_[2]:draw_components_info()
-
-	--table.insert(methods,"")
-	--for i= 1, #methods do
-	--io.write(tostring(methods[i]))
-	--end
-	--[[for i = 1, #b_list_ do
-	gpu.set(m_weight/2-15,5+i,tostring(b_list_[i]:get_x()))
-	gpu.set(m_weight/2-10,5+i,tostring(b_list_[i]:get_y()))
-	gpu.set(m_weight/2-5,5+i,tostring(b_list_[i]:get_h()))
-	gpu.set(m_weight/2,5+i,tostring(b_list_[i]:get_w()))
-	end]]
+	draw:text_align(2,36, 0, 0, "Function out_")	
+	draw:rectangle(2,37,m_weight - 20,9,0,black,white)		
 
 	
+	thread.create(function() 
+	local text = ""
+	while true do
+		local name, address, ch, code, player = event.pull("key_down")
+		if key:get_key(code) == "back" then
+		text = string.sub(text,1,string.len(text)-1)
+		else 
+		text = string.format("%s%s",text, key:get_key(code))
+		end
+		gpu.fill(3,38,m_weight - 19,1," ")
+		gpu.set(3,38,text)
+	end
+	end)
+					
 end
 ------------------------------------------------------------
 
@@ -631,37 +795,30 @@ for i = 1, #b_ do
 		b_[i]:draw_button()
 	end
 end
-
-
 --ПРОВЕРКА НАЖАТИЯ МЫШИ
 local tEvent = {e_pull('touch')}
 
-	for i = 1, #b_list_ do
-		if i == general_status then
-			for b = 1, #b_list_[i] do
-	--for i = 1, #b_list_[general_status] do
-			if tEvent[3] >= b_list_[general_status][b]:get_x() and tEvent[3] <= b_list_[general_status][b]:get_x()+b_list_[general_status][b]:get_w()-1 and tEvent[4] >= b_list_[general_status][b]:get_y() and tEvent[4] <= b_list_[general_status][b]:get_y()+b_list_[general_status][b]:get_h()-1 then 
-				if b_list_[general_status][b].visible == 1 and b_list_[general_status][b]:activate() == true then
-					for c = 1, #b_list_[general_status] do
-					if b_list_[general_status][c] ~= b_list_[general_status][b] and b_list_[general_status][c]:get_cond() == 1 then
-						b_list_[general_status][c]:activate()
+if b_list_[general_status] ~= nil then
+	for b = 1, #b_list_[general_status] do
+		for a = 1, #b_list_[general_status][b] do
+			local _s,_x,_y,_w,_h = b_list_[general_status][b][a]:get_area()
+			if _s == true then
+			if tEvent[3] >= _x and tEvent[3] <= _x+_w and tEvent[4] >= _y and tEvent[4] <= _y+_h then 
+				--if b_list_[general_status][b][a].visible == 1  then
+					if b_list_[general_status][b][a]:activate_function() == true then
+					for c = 1, #b_list_[general_status][b] do
+					if c ~= a and b_list_[general_status][b][c]:get_cond() == 1 then
+						b_list_[general_status][b][c]:set_cond(0)
 						end
 					end
 				end
 			end
+			end
+			
 		end
 	end
-	end
-	--[[gpu.set(m_weight/2-15,10,"12345")
-	for i = 1, #b_list_ do
-	for b = 1, #b_list_[i] do
-	gpu.set(m_weight/2-15+i-1,10+b,"x")
-	gpu.set(m_weight/2-15+i-1,10+b,tostring(b_list_[i][b]:get_y()))
-	
-	end
-	end]]
-	--end
---end
+end
+
 for i = 1, #b_ do
 	if b_[i].g_status == general_status then
 		if tEvent[3] >= b_[i]:get_x() and tEvent[3] <= b_[i]:get_x()+b_[i]:get_w()-1 and tEvent[4] >= b_[i]:get_y() and tEvent[4] <= b_[i]:get_y()+b_[i]:get_h()-1 then 
